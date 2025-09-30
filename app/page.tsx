@@ -1,103 +1,92 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Code, Zap, Trophy, Star, Flame, Crown } from "lucide-react";
+
+const rounds = [
+  { id: 1, title: "Round 1", description: "Getting Started", difficulty: "Beginner", icon: Code, color: "bg-green-500" },
+  { id: 2, title: "Round 2", description: "Basic Logic", difficulty: "Easy", icon: Zap, color: "bg-blue-500" },
+  { id: 3, title: "Round 3", description: "Data Processing", difficulty: "Medium", icon: Trophy, color: "bg-yellow-500" },
+  { id: 4, title: "Round 4", description: "Complex Algorithms", difficulty: "Hard", icon: Star, color: "bg-orange-500" },
+  { id: 5, title: "Round 5", description: "Advanced Challenges", difficulty: "Expert", icon: Flame, color: "bg-red-500" },
+  { id: 6, title: "Round 6", description: "Master Level", difficulty: "Legendary", icon: Crown, color: "bg-purple-500" },
+];
 
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      {/* Hero Section */}
+      <div className="container mx-auto px-6 py-12">
+        <div className="text-center mb-16">
+          <h1 className="text-6xl font-bold mb-6 h-16 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            Coding Puzzle Showcase
+          </h1>
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            Explore challenging Python programming puzzles across 6 difficulty levels. 
+            From beginner-friendly exercises to legendary algorithms.
+          </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Rounds Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {rounds.map((round) => {
+            const IconComponent = round.icon;
+            return (
+              <Link
+                key={round.id}
+                href={`/round/${round.id}`}
+                className="group relative overflow-hidden rounded-2xl bg-white/10 backdrop-blur-lg border border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 hover:shadow-2xl cursor-pointer"
+              >
+                <div className="p-8">
+                  <div className={`w-16 h-16 ${round.color} rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                    <IconComponent className="w-8 h-8 text-white" />
+                  </div>
+                  
+                  <h3 className="text-2xl font-bold text-white mb-3">{round.title}</h3>
+                  <p className="text-gray-300 mb-4">{round.description}</p>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      round.difficulty === 'Beginner' ? 'bg-green-500/20 text-green-300' :
+                      round.difficulty === 'Easy' ? 'bg-blue-500/20 text-blue-300' :
+                      round.difficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                      round.difficulty === 'Hard' ? 'bg-orange-500/20 text-orange-300' :
+                      round.difficulty === 'Expert' ? 'bg-red-500/20 text-red-300' :
+                      'bg-purple-500/20 text-purple-300'
+                    }`}>
+                      {round.difficulty}
+                    </span>
+                    <div className="text-gray-400 group-hover:text-white transition-colors">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Subtle glow effect */}
+                <div className={`absolute inset-0 ${round.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300 rounded-2xl`} />
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Stats Section */}
+        <div className="mt-20 text-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <div className="bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">
+              <div className="text-3xl font-bold text-purple-400 mb-2">24+</div>
+              <div className="text-gray-300">Total Puzzles</div>
+            </div>
+            <div className="bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">
+              <div className="text-3xl font-bold text-blue-400 mb-2">6</div>
+              <div className="text-gray-300">Difficulty Levels</div>
+            </div>
+            <div className="bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">
+              <div className="text-3xl font-bold text-green-400 mb-2">Python</div>
+              <div className="text-gray-300">Programming Language</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
