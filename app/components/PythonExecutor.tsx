@@ -9,6 +9,7 @@ interface ExecutionOutput {
   waitingForInput?: boolean;
   completed?: boolean;
   error?: string;
+  details?: string;
   exitCode?: number;
 }
 
