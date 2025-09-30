@@ -2,6 +2,8 @@
 
 Showing off various programming puzzles with interactive python terminal!
 
+(note: the interactive python terminal might not work on the live demo, but it works when ran locally)
+
 Live demo: https://coding-puzzle-showcase.vercel.app/
 
 <img width="1902" height="893" alt="image" src="https://github.com/user-attachments/assets/2b870f53-58ee-4696-8808-7b50053c6f9d" />
