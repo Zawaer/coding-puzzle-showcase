@@ -1,13 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { Code, Zap, Trophy, Star, Flame, Crown } from "lucide-react";
 
 const rounds = [
-  { id: 1, title: "Round 1", description: "Getting Started", difficulty: "Beginner", icon: Code, color: "bg-green-500" },
-  { id: 2, title: "Round 2", description: "Basic Logic", difficulty: "Easy", icon: Zap, color: "bg-blue-500" },
-  { id: 3, title: "Round 3", description: "Data Processing", difficulty: "Medium", icon: Trophy, color: "bg-yellow-500" },
-  { id: 4, title: "Round 4", description: "Complex Algorithms", difficulty: "Hard", icon: Star, color: "bg-orange-500" },
-  { id: 5, title: "Round 5", description: "Advanced Challenges", difficulty: "Expert", icon: Flame, color: "bg-red-500" },
-  { id: 6, title: "Round 6", description: "Master Level", difficulty: "Legendary", icon: Crown, color: "bg-purple-500" },
+  { id: 1, title: "Round 1", description: "Getting started", difficulty: "Beginner", icon: Code, color: "bg-green-500" },
+  { id: 2, title: "Round 2", description: "Basic logic", difficulty: "Easy", icon: Zap, color: "bg-blue-500" },
+  { id: 3, title: "Round 3", description: "Data processing", difficulty: "Medium", icon: Trophy, color: "bg-yellow-500" },
+  { id: 4, title: "Round 4", description: "Complex algorithms", difficulty: "Hard", icon: Star, color: "bg-orange-500" },
+  { id: 5, title: "Round 5", description: "Advanced challenges", difficulty: "Expert", icon: Flame, color: "bg-red-500" },
+  { id: 6, title: "Round 6", description: "Master level", difficulty: "Legendary", icon: Crown, color: "bg-purple-500" },
 ];
 
 export default function Home() {
@@ -33,7 +35,12 @@ export default function Home() {
               <Link
                 key={round.id}
                 href={`/round/${round.id}`}
+                prefetch={true}
                 className="group relative overflow-hidden rounded-2xl bg-white/10 backdrop-blur-lg border border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 hover:shadow-2xl cursor-pointer"
+                onMouseEnter={() => {
+                  // Prefetch API data on hover for instant loading
+                  fetch(`/api/round?id=${round.id}`).catch(() => {});
+                }}
               >
                 <div className="p-8">
                   <div className={`w-16 h-16 ${round.color} rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
@@ -73,16 +80,16 @@ export default function Home() {
         <div className="mt-20 text-center">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             <div className="bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">
-              <div className="text-3xl font-bold text-purple-400 mb-2">24+</div>
-              <div className="text-gray-300">Total Puzzles</div>
+              <div className="text-3xl font-bold text-purple-400 mb-2">24</div>
+              <div className="text-gray-300">Total puzzles</div>
             </div>
             <div className="bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">
               <div className="text-3xl font-bold text-blue-400 mb-2">6</div>
-              <div className="text-gray-300">Difficulty Levels</div>
+              <div className="text-gray-300">Difficulty levels</div>
             </div>
             <div className="bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">
               <div className="text-3xl font-bold text-green-400 mb-2">Python</div>
-              <div className="text-gray-300">Programming Language</div>
+              <div className="text-gray-300">Programming language</div>
             </div>
           </div>
         </div>

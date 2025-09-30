@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Code, Play, Clock, Puzzle } from "lucide-react";
+import { ArrowLeft, Code, Play, Clock, Puzzle, Loader2 } from "lucide-react";
 import { use, useEffect, useState } from "react";
 
 interface Puzzle {
@@ -48,7 +48,7 @@ export default function RoundPage({ params }: { params: Promise<{ id: string }> 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading round...</div>
+        <Loader2 className="w-12 h-12 text-purple-400 animate-spin" />
       </div>
     );
   }
@@ -111,7 +111,12 @@ export default function RoundPage({ params }: { params: Promise<{ id: string }> 
             <Link
               key={puzzle.filename}
               href={`/round/${resolvedParams.id}/puzzle/${puzzle.filename}`}
+              prefetch={true}
               className="group relative overflow-hidden rounded-2xl bg-white/10 backdrop-blur-lg border border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 hover:shadow-2xl cursor-pointer"
+              onMouseEnter={() => {
+                // Prefetch API data on hover for instant loading
+                fetch(`/api/puzzle?round=${resolvedParams.id}&puzzle=${puzzle.filename}`).catch(() => {});
+              }}
             >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -135,7 +140,7 @@ export default function RoundPage({ params }: { params: Promise<{ id: string }> 
                   </div>
                   <div className="flex items-center text-gray-400 group-hover:text-white transition-colors">
                     <Play className="w-4 h-4 mr-1" />
-                    Solve
+                    Try
                   </div>
                 </div>
               </div>
@@ -160,7 +165,14 @@ export default function RoundPage({ params }: { params: Promise<{ id: string }> 
                 <div className="text-gray-300 text-sm">Difficulty</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-green-400 mb-2">~30min</div>
+                <div className="text-2xl font-bold text-green-400 mb-2">
+                  {roundData.roundNumber === 1 ? '~30min' :
+                   roundData.roundNumber === 2 ? '~30min' :
+                   roundData.roundNumber === 3 ? '~1h' :
+                   roundData.roundNumber === 4 ? '~1h' :
+                   roundData.roundNumber === 5 ? '~1h 30min' :
+                   '~2h'}
+                </div>
                 <div className="text-gray-300 text-sm">Est. time</div>
               </div>
             </div>

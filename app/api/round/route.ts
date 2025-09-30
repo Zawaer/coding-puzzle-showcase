@@ -45,12 +45,12 @@ export async function GET(request: NextRequest) {
   }));
 
   const roundInfo = {
-    1: { title: "Round 1: Getting Started", description: "Welcome to your coding journey! These foundational puzzles introduce basic programming concepts.", difficulty: "Beginner", color: "bg-green-500" },
-    2: { title: "Round 2: Basic Logic", description: "Build your logical thinking with these intermediate challenges.", difficulty: "Easy", color: "bg-blue-500" },
-    3: { title: "Round 3: Data Processing", description: "Learn to manipulate and process data effectively.", difficulty: "Medium", color: "bg-yellow-500" },
-    4: { title: "Round 4: Complex Algorithms", description: "Dive into more sophisticated algorithmic thinking.", difficulty: "Hard", color: "bg-orange-500" },
-    5: { title: "Round 5: Advanced Challenges", description: "Push your limits with these expert-level problems.", difficulty: "Expert", color: "bg-red-500" },
-    6: { title: "Round 6: Master Level", description: "The ultimate test of your programming mastery.", difficulty: "Legendary", color: "bg-purple-500" }
+    1: { title: "Round 1: Getting started", description: "Welcome to your coding journey! These foundational puzzles introduce basic programming concepts.", difficulty: "Beginner", color: "bg-green-500" },
+    2: { title: "Round 2: Basic logic", description: "Build your logical thinking with these intermediate challenges.", difficulty: "Easy", color: "bg-blue-500" },
+    3: { title: "Round 3: Data processing", description: "Learn to manipulate and process data effectively.", difficulty: "Medium", color: "bg-yellow-500" },
+    4: { title: "Round 4: Complex algorithms", description: "Dive into more sophisticated algorithmic thinking.", difficulty: "Hard", color: "bg-orange-500" },
+    5: { title: "Round 5: Advanced challenges", description: "Push your limits with these expert-level problems.", difficulty: "Expert", color: "bg-red-500" },
+    6: { title: "Round 6: Master level", description: "The ultimate test of your programming mastery.", difficulty: "Legendary", color: "bg-purple-500" }
   }[roundNumber];
 
   const roundData: RoundData = {
@@ -62,5 +62,10 @@ export async function GET(request: NextRequest) {
     roundNumber
   };
 
-  return NextResponse.json(roundData);
+  const response = NextResponse.json(roundData);
+  
+  // Add caching headers for better performance
+  response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+  
+  return response;
 }

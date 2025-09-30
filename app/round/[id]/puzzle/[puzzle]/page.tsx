@@ -22,6 +22,7 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
   const [puzzleData, setPuzzleData] = useState<PuzzleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState(false);
 
   useEffect(() => {
     const fetchPuzzleData = async () => {
@@ -52,12 +53,11 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
             className="inline-flex items-center text-gray-300 hover:text-white transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Round {resolvedParams.id}
+            Back
           </Link>
         </div>
-        <div className="flex items-center gap-3 text-white text-xl">
-          <Loader2 className="w-8 h-8 animate-spin" />
-          Loading puzzle...
+        <div className="flex items-center justify-center">
+          <Loader2 className="w-12 h-12 text-purple-400 animate-spin" />
         </div>
       </div>
     );
@@ -79,7 +79,8 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(puzzleData.code);
-      // You could add a toast notification here
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 2000);
     } catch (err) {
       console.error('Failed to copy code:', err);
     }
@@ -151,13 +152,20 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                <button
-                  onClick={copyToClipboard}
-                  className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg transition-colors cursor-pointer"
-                >
-                  <Copy className="w-4 h-4" />
-                  Copy code
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={copyToClipboard}
+                    className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy code
+                  </button>
+                  {copyFeedback && (
+                    <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
+                      Code copied!
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={downloadCode}
                   className="w-full flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white py-3 px-4 rounded-lg transition-colors cursor-pointer"
@@ -225,7 +233,7 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
                     Output
                   </label>
                   <div className="w-full h-32 bg-black/30 border border-white/20 rounded-lg p-3 text-gray-400 font-mono text-sm">
-                    Click "Run code" to execute the puzzle and see the output...
+                    Click &quot;Run code&quot; to execute the puzzle and see the output...
                     <br />
                     <br />
                     <span className="text-yellow-400">Note:</span> Python runtime will be implemented in a future update.

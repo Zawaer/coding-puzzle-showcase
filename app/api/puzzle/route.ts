@@ -74,5 +74,10 @@ export async function GET(request: NextRequest) {
     ...roundInfo!
   };
 
-  return NextResponse.json(puzzleData);
+  const response = NextResponse.json(puzzleData);
+  
+  // Add caching headers for better performance
+  response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+  
+  return response;
 }
