@@ -19,7 +19,7 @@ export default function Home() {
       <div className="container mx-auto px-6 py-12">
         <div className="text-center mb-16">
           <h1 className="text-6xl font-bold mb-6 h-16 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Coding Puzzle Showcase
+            Coding Puzzle Showcase!
           </h1>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
             Explore challenging Python programming puzzles across 6 difficulty levels. 
