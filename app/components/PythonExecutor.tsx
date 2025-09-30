@@ -9,6 +9,7 @@ interface ExecutionOutput {
   waitingForInput?: boolean;
   completed?: boolean;
   error?: string;
+  details?: string;
   exitCode?: number;
 }
 
@@ -57,10 +58,35 @@ export default function PythonExecutor({ code, className = "" }: PythonExecutorP
         body: JSON.stringify({ code }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`Expected JSON response, got: ${text.substring(0, 100)}...`);
+      }
+
       const result: ExecutionOutput = await response.json();
       
       if (result.error) {
-        setOutput(`Error: ${result.error}\n${result.details || ''}`);
+        let errorMessage = `Error: ${result.error}\n${result.details || ''}`;
+        
+        // Add helpful message for Python installation on Windows
+        if (result.error.includes('Python not available')) {
+          errorMessage += '\n\n📋 How to install Python on Windows:\n';
+          errorMessage += '1. Visit https://python.org/downloads/\n';
+          errorMessage += '2. Download the latest Python version\n';
+          errorMessage += '3. Run the installer and check "Add to PATH"\n';
+          errorMessage += '4. Restart your browser/development server\n';
+          errorMessage += '\nAlternatively, install from Microsoft Store:\n';
+          errorMessage += '1. Open Microsoft Store\n';
+          errorMessage += '2. Search for "Python"\n';
+          errorMessage += '3. Install Python 3.x\n';
+        }
+        
+        setOutput(errorMessage);
         setIsRunning(false);
         setIsCompleted(true);
         return;
@@ -95,6 +121,16 @@ export default function PythonExecutor({ code, className = "" }: PythonExecutorP
           sessionId 
         }),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`Expected JSON response, got: ${text.substring(0, 100)}...`);
+      }
 
       const result: ExecutionOutput = await response.json();
       
@@ -258,8 +294,9 @@ export default function PythonExecutor({ code, className = "" }: PythonExecutorP
               <span className="text-blue-400">Session: {sessionId.slice(0, 8)}...</span>
             )}
           </div>
-          <div className="text-gray-500">
-            Python Interactive Executor
+          <div className="text-gray-500 text-right">
+            <div>Python Interactive Executor</div>
+            <div className="text-xs">Note: 25s timeout on Vercel</div>
           </div>
         </div>
       </div>

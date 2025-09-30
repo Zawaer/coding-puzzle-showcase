@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "app/api/execute/route.ts": {
+      "maxDuration": 30
+    }
+  },
+  "build": {
+    "env": {
+      "PYTHON_PATH": "/usr/bin/python3"
+    }
+  }
+}
