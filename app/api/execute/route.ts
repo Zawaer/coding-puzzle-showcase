@@ -1,3 +1,4 @@
+/* eslint-disable prefer-const */
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
@@ -129,8 +130,8 @@ finally:
 `;
 
     return new Promise<NextResponse>((resolve) => {
-      let outputBuffer = '';
-      let isWaitingForInput = false;
+      const outputBuffer = '';
+      const isWaitingForInput = false;
       
       // For Windows, try different Python commands in order
       const pythonCommands = [
@@ -170,7 +171,7 @@ finally:
             }
           });
 
-          pythonProcess.on('error', (error: any) => {
+          pythonProcess.on('error', (error: Error) => {
             console.log(`Failed to run ${pythonCmd}:`, error.message);
             // Try next command
             tryPythonCommand();
@@ -199,7 +200,7 @@ finally:
 }
 
 function setupProcessHandlers(
-  pythonProcess: any, 
+  pythonProcess: ReturnType<typeof spawn>, 
   sessionId: string, 
   resolve: (value: NextResponse) => void,
   initialOutput: string,
@@ -214,29 +215,33 @@ function setupProcessHandlers(
     startTime: Date.now()
   });
   
-  pythonProcess.stdout.on('data', (data: Buffer) => {
-    const text = data.toString('utf8');
-    outputBuffer += text;
-    
-    // Check for input indicators
-    const inputIndicators = [
-      '?', 'How many', 'Enter', 'What is', 'choice = int(input())',
-      'input()', 'kannus = float(input())', 'liters = float(input())'
-    ];
-    
-    const hasInputIndicator = inputIndicators.some(indicator => text.includes(indicator));
-    const endsWithoutNewline = !text.endsWith('\n') && text.trim().length > 0;
-    
-    if (hasInputIndicator || endsWithoutNewline) {
-      isWaitingForInput = true;
-    }
-  });
+  if (pythonProcess.stdout) {
+    pythonProcess.stdout.on('data', (data: Buffer) => {
+      const text = data.toString('utf8');
+      outputBuffer += text;
+      
+      // Check for input indicators
+      const inputIndicators = [
+        '?', 'How many', 'Enter', 'What is', 'choice = int(input())',
+        'input()', 'kannus = float(input())', 'liters = float(input())'
+      ];
+      
+      const hasInputIndicator = inputIndicators.some(indicator => text.includes(indicator));
+      const endsWithoutNewline = !text.endsWith('\n') && text.trim().length > 0;
+      
+      if (hasInputIndicator || endsWithoutNewline) {
+        isWaitingForInput = true;
+      }
+    });
+  }
 
-  pythonProcess.stderr.on('data', (data: Buffer) => {
-    const errorText = data.toString('utf8');
-    // Don't process character by character - accumulate the full error message
-    outputBuffer += `Error: ${errorText}`;
-  });
+  if (pythonProcess.stderr) {
+    pythonProcess.stderr.on('data', (data: Buffer) => {
+      const errorText = data.toString('utf8');
+      // Don't process character by character - accumulate the full error message
+      outputBuffer += `Error: ${errorText}`;
+    });
+  }
 
   pythonProcess.on('close', (code: number) => {
     activeProcesses.delete(sessionId);
