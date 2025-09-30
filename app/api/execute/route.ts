@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       process.stdin.write(input + '\n');
       
       // Return a promise that waits for new output
-      return new Promise((resolve) => {
+      return new Promise<NextResponse>((resolve) => {
         const startTime = Date.now();
         let newOutput = '';
         let hasNewOutput = false;
@@ -153,7 +153,6 @@ export async function POST(request: NextRequest) {
 
     // Start new Python execution
     const newSessionId = uuidv4();
-    const output = '';
     let isWaitingForInput = false;
 
     // Create a temporary Python file
@@ -174,7 +173,7 @@ finally:
     print("\\n--- Execution completed ---")
 `;
 
-    return new Promise((resolve) => {
+    return new Promise<NextResponse>((resolve) => {
       let outputBuffer = '';
       
     const pythonProcess = spawn('python', ['-u', '-c', tempCode], {
