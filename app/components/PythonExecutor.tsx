@@ -216,7 +216,7 @@ export default function PythonExecutor({ code, className = "" }: PythonExecutorP
             <pre className="whitespace-pre-wrap">{output}</pre>
           ) : (
             <div className="text-gray-500 italic">
-              Click "Run" to execute the Python code...
+              Click &quot;Run&quot; to execute the Python code...
             </div>
           )}
         </div>
