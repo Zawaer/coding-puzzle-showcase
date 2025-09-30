@@ -10,8 +10,15 @@ interface PythonExecutorProps {
 
 declare global {
   interface Window {
-    loadPyodide: any;
+    loadPyodide: (config?: { indexURL?: string }) => Promise<PyodideInterface>;
   }
+}
+
+interface PyodideInterface {
+  runPython: (code: string) => unknown;
+  globals: {
+    set: (name: string, value: unknown) => void;
+  };
 }
 
 export default function PyodidePythonExecutor({ code, className = "" }: PythonExecutorProps) {
@@ -23,7 +30,7 @@ export default function PyodidePythonExecutor({ code, className = "" }: PythonEx
   const [isLoading, setIsLoading] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const pyodideRef = useRef<any>(null);
+  const pyodideRef = useRef<PyodideInterface | null>(null);
   const inputResolverRef = useRef<((value: string) => void) | null>(null);
 
   // Auto-scroll to bottom when output changes
@@ -111,23 +118,26 @@ _original_stdout = sys.stdout
       setCurrentInput("");
 
       // Simple execution with output capture
-      pyodideRef.current.runPython(`
+      if (pyodideRef.current) {
+        pyodideRef.current.runPython(`
 # Redirect stdout to our capture
 sys.stdout = _stdout_capture
 _stdout_capture.content = ""  # Clear previous content
-      `);
+        `);
 
-      try {
-        pyodideRef.current.runPython(code);
-      } catch (pythonError: any) {
-        pyodideRef.current.runPython(`print(f"Error: {str(${JSON.stringify(pythonError.message)})}")`);
-      }
+        try {
+          pyodideRef.current.runPython(code);
+        } catch (pythonError: unknown) {
+          const errorMessage = pythonError instanceof Error ? pythonError.message : String(pythonError);
+          pyodideRef.current.runPython(`print(f"Error: {${JSON.stringify(errorMessage)}}")`);
+        }
 
-      pyodideRef.current.runPython(`
+        pyodideRef.current.runPython(`
 print("\\n--- Execution completed ---")
 # Restore original stdout
 sys.stdout = _original_stdout
-      `);
+        `);
+      }
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -265,13 +275,13 @@ sys.stdout = _original_stdout
             </div>
           ) : !pyodideReady ? (
             <div className="text-gray-500 italic">
-              Click "Initialize Python" to start the Python environment...
+              Click &quot;Initialize Python&quot; to start the Python environment...
             </div>
           ) : output ? (
             <pre className="whitespace-pre-wrap">{output}</pre>
           ) : (
             <div className="text-gray-500 italic">
-              Click "Run" to execute the Python code...
+              Click &quot;Run&quot; to execute the Python code...
             </div>
           )}
         </div>
@@ -314,7 +324,7 @@ sys.stdout = _original_stdout
           </div>
           <div className="text-gray-500 text-right">
             <div>Pyodide (Python in Browser)</div>
-            <div className="text-xs">Works on Vercel & everywhere!</div>
+            <div className="text-xs">Works on Vercel &amp; everywhere!</div>
           </div>
         </div>
       </div>

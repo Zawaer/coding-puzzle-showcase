@@ -1,4 +1,3 @@
-/* eslint-disable prefer-const */
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
@@ -181,8 +180,8 @@ finally:
             // Successfully spawned, set up handlers
             setupProcessHandlers(pythonProcess, newSessionId, resolve, outputBuffer, isWaitingForInput);
           });
-        } catch (error) {
-          console.log(`Failed to spawn ${pythonCmd}:`, error);
+        } catch (spawnError) {
+          console.log(`Failed to spawn ${pythonCmd}:`, spawnError);
           tryPythonCommand();
         }
       };
