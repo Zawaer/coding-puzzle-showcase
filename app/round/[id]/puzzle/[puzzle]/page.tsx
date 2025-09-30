@@ -25,7 +25,7 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
   
   // Python execution state
   const [isExecuting, setIsExecuting] = useState(false);
-  const [output, setOutput] = useState('Click "Run Code" to execute the Python script...\n');
+  const [output, setOutput] = useState('Click "Run code" to execute the Python script...\n');
   const [currentInput, setCurrentInput] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [waitingForInput, setWaitingForInput] = useState(false);
@@ -191,7 +191,7 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
       }).catch(() => {}); // Ignore errors
     }
     
-    setOutput('Click "Run Code" to execute the Python script...\n');
+    setOutput('Click "Run code" to execute the Python script...\n');
     setSessionId(null);
     setWaitingForInput(false);
     setCurrentInput('');
