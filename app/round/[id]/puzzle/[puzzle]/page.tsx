@@ -160,11 +160,11 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
                     <Copy className="w-4 h-4" />
                     Copy code
                   </button>
-                  {copyFeedback && (
-                    <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
-                      Code copied!
-                    </div>
-                  )}
+                  <div className={`absolute -top-10 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-3 py-1 rounded text-sm whitespace-nowrap transition-all duration-300 ${
+                    copyFeedback ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+                  }`}>
+                    Code copied!
+                  </div>
                 </div>
                 <button
                   onClick={downloadCode}
