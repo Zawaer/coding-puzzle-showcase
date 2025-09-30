@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 
-// Store active Python processes with their output handlers
+// Store active Python processes
 const activeProcesses = new Map();
-const processOutputHandlers = new Map();
 
 export async function POST(request: NextRequest) {
   try {
@@ -154,7 +153,7 @@ export async function POST(request: NextRequest) {
 
     // Start new Python execution
     const newSessionId = uuidv4();
-    let output = '';
+    const initialOutput = '';
     let isWaitingForInput = false;
 
     // Create a temporary Python file
@@ -299,7 +298,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to terminate process' }, { status: 500 });
   }
 }
