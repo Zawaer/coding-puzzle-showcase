@@ -2,25 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 
-// Store active Python processes
+// Store active Python processes with their output handlers
 const activeProcesses = new Map();
-
-// Clean up old processes periodically
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [sessionId, processData] of activeProcesses.entries()) {
-      if (now - processData.startTime > 300000) { // 5 minutes
-        try {
-          processData.process.kill();
-        } catch (error) {
-          console.error('Error killing old process:', error);
-        }
-        activeProcesses.delete(sessionId);
-      }
-    }
-  }, 60000); // Check every minute
-}
+const processOutputHandlers = new Map();
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,163 +14,268 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Code or input required' }, { status: 400 });
     }
 
-    // Handle interactive input for existing sessions
+    // If this is input for an existing session
     if (input && sessionId && activeProcesses.has(sessionId)) {
       const processData = activeProcesses.get(sessionId);
       const process = processData.process;
       
-      try {
-        // Send input to the process
-        process.stdin.write(input + '\n');
+      // Send input to the process
+      process.stdin.write(input + '\n');
+      
+      // Return a promise that waits for new output
+      return new Promise((resolve) => {
+        const startTime = Date.now();
+        let newOutput = '';
+        let hasNewOutput = false;
         
-        // Wait for new output
-        return new Promise<NextResponse>((resolve) => {
-          let newOutput = '';
-          let hasNewOutput = false;
+        // Create a temporary handler for this input cycle
+        const outputHandler = (data: Buffer) => {
+          const text = data.toString('utf8');
+          newOutput += text;
+          hasNewOutput = true;
           
-          const outputHandler = (data: Buffer) => {
-            const text = data.toString('utf8');
-            newOutput += text;
-            hasNewOutput = true;
+          // Check if now waiting for more input
+          const lines = (newOutput || text).split('\n');
+          const lastLine = lines[lines.length - 1] || '';
+          const secondLastLine = lines[lines.length - 2] || '';
+          
+          // More comprehensive input detection
+          const inputIndicators = [
+            'How many',
+            'Enter',
+            'What is',
+            '?',
+            'choice = int(input())',
+            'input()',
+            'kannus = float(input())',
+            'liters = float(input())'
+          ];
+          
+          const hasInputIndicator = inputIndicators.some(indicator => 
+            text.includes(indicator) || 
+            lastLine.includes(indicator) || 
+            secondLastLine.includes(indicator)
+          );
+          
+          // Check for menu patterns
+          const hasMenuPattern = /\d+\)\s/.test(text) || /\d+\)\s/.test(newOutput);
+          const endsWithoutNewline = !text.endsWith('\n') && text.trim().length > 0;
+          
+          const isWaitingForInput = hasInputIndicator || endsWithoutNewline || 
+                                   (hasMenuPattern && (lastLine.trim() === '' || secondLastLine.trim() === ''));
+          
+          // If we detect input prompt, respond immediately
+          if (isWaitingForInput) {
+            process.stdout.removeListener('data', outputHandler);
+            process.stderr.removeListener('data', errorHandler);
             
-            // Check if waiting for more input
-            const inputIndicators = [
-              'How many', 'Enter', 'What is', '?', 'choice = int(input())',
-              'input()', 'kannus = float(input())', 'liters = float(input())'
-            ];
-            
-            const isWaitingForInput = inputIndicators.some(indicator => 
-              text.includes(indicator)
-            ) || (!text.endsWith('\n') && text.trim().length > 0);
-            
-            if (isWaitingForInput) {
-              cleanup();
+            resolve(NextResponse.json({
+              output: newOutput,
+              sessionId: sessionId,
+              waitingForInput: true,
+              completed: false
+            }));
+          }
+        };
+        
+        const errorHandler = (data: Buffer) => {
+          newOutput += `Error: ${data.toString('utf8')}`;
+          hasNewOutput = true;
+        };
+        
+        // Add temporary listeners
+        process.stdout.on('data', outputHandler);
+        process.stderr.on('data', errorHandler);
+        
+        // Check periodically for output
+        const checkOutput = () => {
+          if (hasNewOutput) {
+            // Wait a bit more to see if there's additional output
+            setTimeout(() => {
+              process.stdout.removeListener('data', outputHandler);
+              process.stderr.removeListener('data', errorHandler);
+              
+              const lines = newOutput.split('\n');
+              const lastLine = lines[lines.length - 1] || '';
+              const secondLastLine = lines[lines.length - 2] || '';
+              
+              // More comprehensive input detection
+              const inputIndicators = [
+                'How many',
+                'Enter',
+                'What is',
+                '?',
+                'choice = int(input())',
+                'input()',
+                'kannus = float(input())',
+                'liters = float(input())'
+              ];
+              
+              const hasInputIndicator = inputIndicators.some(indicator => 
+                newOutput.includes(indicator) || 
+                lastLine.includes(indicator) || 
+                secondLastLine.includes(indicator)
+              );
+              
+              const hasMenuPattern = /\d+\)\s/.test(newOutput);
+              const endsWithoutNewline = newOutput.length > 0 && !newOutput.endsWith('\n');
+              
+              const isWaitingForInput = hasInputIndicator || endsWithoutNewline || 
+                                       (hasMenuPattern && (lastLine.trim() === '' || secondLastLine.trim() === ''));
+              
               resolve(NextResponse.json({
                 output: newOutput,
                 sessionId: sessionId,
-                waitingForInput: true,
+                waitingForInput: isWaitingForInput,
                 completed: false
               }));
-            }
-          };
-          
-          const errorHandler = (data: Buffer) => {
-            newOutput += `Error: ${data.toString('utf8')}`;
-            hasNewOutput = true;
-          };
-          
-          const cleanup = () => {
+            }, 500);
+          } else if (Date.now() - startTime > 3000) {
+            // Timeout - assume program is done or waiting
             process.stdout.removeListener('data', outputHandler);
             process.stderr.removeListener('data', errorHandler);
-          };
-          
-          process.stdout.on('data', outputHandler);
-          process.stderr.on('data', errorHandler);
-          
-          // Timeout for serverless environments
-          setTimeout(() => {
-            cleanup();
+            
             resolve(NextResponse.json({
               output: newOutput || '',
               sessionId: sessionId,
-              waitingForInput: hasNewOutput && !newOutput.includes('completed'),
-              completed: !hasNewOutput
+              waitingForInput: false,
+              completed: true
             }));
-          }, 8000);
-        });
-      } catch (error) {
-        activeProcesses.delete(sessionId);
-        return NextResponse.json({ 
-          error: 'Process communication failed', 
-          details: error instanceof Error ? error.message : 'Unknown error'
-        }, { status: 500 });
-      }
+          } else {
+            // Check again
+            setTimeout(checkOutput, 200);
+          }
+        };
+        
+        // Start checking after a short delay
+        setTimeout(checkOutput, 100);
+      });
     }
 
     // Start new Python execution
     const newSessionId = uuidv4();
+    let output = '';
+    let isWaitingForInput = false;
 
-    // Python code wrapper
+    // Create a temporary Python file
     const tempCode = `
 import sys
 import os
 import io
 
-# Set up UTF-8 encoding and unbuffered output
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+# Set up UTF-8 encoding for output
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 try:
 ${code.split('\n').map((line: string) => '    ' + line).join('\n')}
-except KeyboardInterrupt:
-    print("\\n--- Execution interrupted ---")
 except Exception as e:
     print(f"Error: {e}")
 finally:
     print("\\n--- Execution completed ---")
-    sys.stdout.flush()
-    sys.stderr.flush()
 `;
 
-    return new Promise<NextResponse>((resolve) => {
-      const outputBuffer = '';
-      const isWaitingForInput = false;
+    return new Promise((resolve) => {
+      let outputBuffer = '';
       
-      // For Windows, try different Python commands in order
-      const pythonCommands = [
-        process.env.PYTHON_PATH,
-        'python',
-        'python3',
-        'py',
-        'C:\\Python\\python.exe',
-        'C:\\Python39\\python.exe',
-        'C:\\Python310\\python.exe',
-        'C:\\Python311\\python.exe',
-        'C:\\Python312\\python.exe'
-      ].filter((cmd): cmd is string => Boolean(cmd));
+    const pythonProcess = spawn('python', ['-u', '-c', tempCode], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { 
+        ...process.env, 
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUNBUFFERED: '1'
+      }
+    });      pythonProcess.on('error', (error) => {
+        activeProcesses.delete(newSessionId);
+        resolve(NextResponse.json({
+          error: 'Python not found. Please make sure Python is installed and available in your system PATH.',
+          details: error.message
+        }, { status: 500 }));
+        return;
+      });
+
+      // Store the process with metadata
+      activeProcesses.set(newSessionId, {
+        process: pythonProcess,
+        startTime: Date.now()
+      });
       
-      let commandIndex = 0;
-      
-      const tryPythonCommand = () => {
-        if (commandIndex >= pythonCommands.length) {
-          activeProcesses.delete(newSessionId);
+      pythonProcess.stdout.on('data', (data) => {
+        const text = data.toString('utf8');
+        outputBuffer += text;
+        
+        // Check if waiting for input - improved detection
+        const lines = outputBuffer.split('\n');
+        const lastLine = lines[lines.length - 1] || '';
+        const secondLastLine = lines[lines.length - 2] || '';
+        
+        // More comprehensive input detection
+        const inputIndicators = [
+          '?',
+          'How many',
+          'Enter',
+          'What is',
+          'choice = int(input())',
+          'input()',
+          'kannus = float(input())',
+          'liters = float(input())'
+        ];
+        
+        const hasInputIndicator = inputIndicators.some(indicator => 
+          text.includes(indicator) || 
+          lastLine.includes(indicator) || 
+          secondLastLine.includes(indicator)
+        );
+        
+        // Also check if the output ends without a newline (common for input prompts)
+        const endsWithoutNewline = !text.endsWith('\n') && text.trim().length > 0;
+        
+        // Check for menu patterns (numbers followed by closing parenthesis)
+        const hasMenuPattern = /\d+\)\s/.test(outputBuffer);
+        
+        if (hasInputIndicator || endsWithoutNewline || 
+            (hasMenuPattern && (lastLine.trim() === '' || secondLastLine.trim() === ''))) {
+          isWaitingForInput = true;
+        }
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        outputBuffer += `Error: ${data.toString('utf8')}`;
+      });
+
+      pythonProcess.on('close', (code) => {
+        activeProcesses.delete(newSessionId);
+        resolve(NextResponse.json({
+          output: outputBuffer,
+          sessionId: newSessionId,
+          completed: true,
+          exitCode: code
+        }));
+      });
+
+      // For interactive programs, return early if waiting for input
+      setTimeout(() => {
+        if (activeProcesses.has(newSessionId) && isWaitingForInput) {
           resolve(NextResponse.json({
-            error: 'Python not available',
-            details: 'Python is not installed or not available in the PATH. Please install Python from python.org or Microsoft Store. Tried commands: ' + pythonCommands.join(', ')
-          }, { status: 500 }));
-          return;
+            output: outputBuffer,
+            sessionId: newSessionId,
+            completed: false,
+            waitingForInput: true
+          }));
         }
-        
-        const pythonCmd = pythonCommands[commandIndex];
-        commandIndex++;
-        
-        try {
-          const pythonProcess = spawn(pythonCmd, ['-u', '-c', tempCode], {
-            stdio: ['pipe', 'pipe', 'pipe'],
-            env: { 
-              ...process.env, 
-              PYTHONIOENCODING: 'utf-8',
-              PYTHONUNBUFFERED: '1'
-            }
-          });
+      }, 2000);
 
-          pythonProcess.on('error', (error: Error) => {
-            console.log(`Failed to run ${pythonCmd}:`, error.message);
-            // Try next command
-            tryPythonCommand();
-          });
-
-          pythonProcess.on('spawn', () => {
-            // Successfully spawned, set up handlers
-            setupProcessHandlers(pythonProcess, newSessionId, resolve, outputBuffer, isWaitingForInput);
-          });
-        } catch (spawnError) {
-          console.log(`Failed to spawn ${pythonCmd}:`, spawnError);
-          tryPythonCommand();
+      // Final timeout for non-interactive programs
+      setTimeout(() => {
+        if (activeProcesses.has(newSessionId)) {
+          resolve(NextResponse.json({
+            output: outputBuffer,
+            sessionId: newSessionId,
+            completed: false,
+            waitingForInput: isWaitingForInput
+          }));
         }
-      };
-      
-      tryPythonCommand();
+      }, 10000);
     });
 
   } catch (error) {
@@ -196,91 +285,6 @@ finally:
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
-}
-
-function setupProcessHandlers(
-  pythonProcess: ReturnType<typeof spawn>, 
-  sessionId: string, 
-  resolve: (value: NextResponse) => void,
-  initialOutput: string,
-  initialWaitingState: boolean
-) {
-  let outputBuffer = initialOutput;
-  let isWaitingForInput = initialWaitingState;
-
-  // Store the process
-  activeProcesses.set(sessionId, {
-    process: pythonProcess,
-    startTime: Date.now()
-  });
-  
-  if (pythonProcess.stdout) {
-    pythonProcess.stdout.on('data', (data: Buffer) => {
-      const text = data.toString('utf8');
-      outputBuffer += text;
-      
-      // Check for input indicators
-      const inputIndicators = [
-        '?', 'How many', 'Enter', 'What is', 'choice = int(input())',
-        'input()', 'kannus = float(input())', 'liters = float(input())'
-      ];
-      
-      const hasInputIndicator = inputIndicators.some(indicator => text.includes(indicator));
-      const endsWithoutNewline = !text.endsWith('\n') && text.trim().length > 0;
-      
-      if (hasInputIndicator || endsWithoutNewline) {
-        isWaitingForInput = true;
-      }
-    });
-  }
-
-  if (pythonProcess.stderr) {
-    pythonProcess.stderr.on('data', (data: Buffer) => {
-      const errorText = data.toString('utf8');
-      // Don't process character by character - accumulate the full error message
-      outputBuffer += `Error: ${errorText}`;
-    });
-  }
-
-  pythonProcess.on('close', (code: number) => {
-    activeProcesses.delete(sessionId);
-    resolve(NextResponse.json({
-      output: outputBuffer,
-      sessionId: sessionId,
-      completed: true,
-      exitCode: code
-    }));
-  });
-
-  // Initial timeout for interactive detection
-  setTimeout(() => {
-    if (activeProcesses.has(sessionId) && isWaitingForInput) {
-      resolve(NextResponse.json({
-        output: outputBuffer,
-        sessionId: sessionId,
-        completed: false,
-        waitingForInput: true
-      }));
-    }
-  }, 3000);
-
-  // Final timeout
-  setTimeout(() => {
-    if (activeProcesses.has(sessionId)) {
-      try {
-        pythonProcess.kill();
-      } catch (error) {
-        console.error('Error killing process:', error);
-      }
-      activeProcesses.delete(sessionId);
-      resolve(NextResponse.json({
-        output: outputBuffer + '\n--- Execution timeout ---',
-        sessionId: sessionId,
-        completed: true,
-        waitingForInput: false
-      }));
-    }
-  }, 25000);
 }
 
 export async function DELETE(request: NextRequest) {
@@ -296,7 +300,6 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error terminating process:', error);
     return NextResponse.json({ error: 'Failed to terminate process' }, { status: 500 });
   }
 }

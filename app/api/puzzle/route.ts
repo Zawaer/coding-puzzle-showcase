@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
     6: { difficulty: "Legendary", color: "bg-purple-500", roundTitle: "Round 6: Master Level" }
   }[roundNumber];
 
-  // Generate description based on puzzle name
-  const generateDescription = (name: string) => {
+  // Generate description based on puzzle name and content
+  const generateDescription = (name: string, code: string) => {
     const formattedName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     
     if (name.includes('battery')) {
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     name: puzzleName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
     code,
     roundNumber,
-    description: generateDescription(puzzleName),
+    description: generateDescription(puzzleName, code),
     ...roundInfo!
   };
 

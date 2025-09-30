@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Code, Play, Puzzle, Loader2 } from "lucide-react";
+import { notFound } from "next/navigation";
+import { ArrowLeft, Code, Play, Clock, Puzzle, Loader2 } from "lucide-react";
 import { use, useEffect, useState } from "react";
 
 interface Puzzle {

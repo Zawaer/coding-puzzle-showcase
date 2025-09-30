@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Copy, Download, Code, Terminal, Loader2 } from "lucide-react";
+import { notFound } from "next/navigation";
+import { ArrowLeft, Play, Copy, Download, Code, Terminal, Loader2 } from "lucide-react";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useEffect, useState, use } from "react";
-import PythonExecutor from "../../../../components/HybridPythonExecutor";
 
 interface PuzzleData {
   name: string;
@@ -23,6 +23,13 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  
+  // Python execution state
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [output, setOutput] = useState('Click "Run Code" to execute the Python script...\n');
+  const [currentInput, setCurrentInput] = useState('');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [waitingForInput, setWaitingForInput] = useState(false);
 
   useEffect(() => {
     const fetchPuzzleData = async () => {
@@ -98,6 +105,100 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
     URL.revokeObjectURL(url);
   };
 
+  const runPythonCode = async () => {
+    if (!puzzleData?.code) return;
+    
+    setIsExecuting(true);
+    setOutput('> Executing Python code...\n');
+    setWaitingForInput(false);
+    setSessionId(null);
+    
+    try {
+      const response = await fetch('/api/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: puzzleData.code,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.error) {
+        setOutput(prev => prev.replace('> Executing Python code...\n', '') + `Error: ${result.error}\n`);
+      } else {
+        setOutput(prev => prev.replace('> Executing Python code...\n', '') + result.output);
+        if (result.sessionId) {
+          setSessionId(result.sessionId);
+        }
+        setWaitingForInput(result.waitingForInput || false);
+      }
+    } catch (error) {
+      setOutput(prev => prev.replace('> Executing Python code...\n', '') + `Network Error: ${error instanceof Error ? error.message : 'Unknown error'}\n`);
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  const sendInput = async () => {
+    if (!currentInput.trim() || !sessionId) return;
+    
+    const inputValue = currentInput;
+    setCurrentInput('');
+    setOutput(prev => prev + `> ${inputValue}\n`);
+    setWaitingForInput(false);
+    setIsExecuting(true); // Show loading while processing input
+    
+    try {
+      const response = await fetch('/api/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: inputValue,
+          sessionId: sessionId,
+        }),
+      });
+
+      const result = await response.json();
+      console.log('Input response:', result); // Debug log
+      
+      if (result.output) {
+        setOutput(prev => prev + result.output);
+      }
+      
+      setWaitingForInput(result.waitingForInput || false);
+      
+      if (result.completed) {
+        setSessionId(null);
+      }
+    } catch (error) {
+      console.error('Input error:', error); // Debug log
+      setOutput(prev => prev + `Input Error: ${error instanceof Error ? error.message : 'Unknown error'}\n`);
+      setWaitingForInput(false);
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  const clearOutput = () => {
+    // Terminate existing session if any
+    if (sessionId) {
+      fetch(`/api/execute?sessionId=${sessionId}`, {
+        method: 'DELETE'
+      }).catch(() => {}); // Ignore errors
+    }
+    
+    setOutput('Click "Run Code" to execute the Python script...\n');
+    setSessionId(null);
+    setWaitingForInput(false);
+    setCurrentInput('');
+    setIsExecuting(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="container mx-auto px-6 py-12">
@@ -112,9 +213,9 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 max-w-7xl mx-auto mt-16">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto mt-16">
           {/* Puzzle Info Panel */}
-          <div className="xl:col-span-1">
+          <div className="lg:col-span-1">
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 sticky top-8">
               <div className={`w-16 h-16 ${puzzleData.color} rounded-xl flex items-center justify-center mb-6`}>
                 <Code className="w-8 h-8 text-white" />
@@ -177,37 +278,115 @@ export default function PuzzlePage({ params }: { params: Promise<{ id: string; p
             </div>
           </div>
 
-          {/* Code and Runner Panel - Two Columns */}
-          <div className="xl:col-span-3 space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Code Display */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 overflow-hidden">
-                <div className="flex items-center justify-between p-4 border-b border-white/10">
-                  <div className="flex items-center gap-2">
-                    <Terminal className="w-5 h-5 text-gray-400" />
-                    <span className="text-white font-medium">{resolvedParams.puzzle}.py</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  </div>
+          {/* Code and Runner Panel */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Code Display */}
+            <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-5 h-5 text-gray-400" />
+                  <span className="text-white font-medium">{resolvedParams.puzzle}.py</span>
                 </div>
-                <div className="overflow-x-auto max-h-96">
-                  <SyntaxHighlighter
-                    language="python"
-                    style={oneDark}
-                    className="!m-0"
-                    showLineNumbers={true}
-                    lineNumberStyle={{ color: '#6B7280', fontSize: '0.875rem' }}
-                  >
-                    {puzzleData.code}
-                  </SyntaxHighlighter>
+                <div className="flex gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 </div>
               </div>
+              <div className="overflow-x-auto">
+                <SyntaxHighlighter
+                  language="python"
+                  style={oneDark}
+                  className="!m-0"
+                  showLineNumbers={true}
+                  lineNumberStyle={{ color: '#6B7280', fontSize: '0.875rem' }}
+                >
+                  {puzzleData.code}
+                </SyntaxHighlighter>
+              </div>
+            </div>
 
-              {/* Python Executor */}
-              <PythonExecutor code={puzzleData.code} />
+            {/* Interactive Python terminal */}
+            <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-green-400" />
+                Interactive Python terminal
+              </h3>
+              
+              <div className="space-y-4">
+                {/* Control Buttons */}
+                <div className="flex gap-3">
+                  <button 
+                    onClick={runPythonCode}
+                    disabled={isExecuting}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {isExecuting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4" />
+                        Run code
+                      </>
+                    )}
+                  </button>
+                  
+                  <button 
+                    onClick={clearOutput}
+                    className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                {/* Terminal Output */}
+                <div className="bg-black/40 border border-white/20 rounded-lg p-4 h-64 overflow-y-auto">
+                  <pre className="text-green-400 font-mono text-sm whitespace-pre-wrap break-words">
+                    {output}
+                  </pre>
+                  
+                  {/* Input Line */}
+                  {(waitingForInput || isExecuting) && (
+                    <div className="flex items-center mt-2">
+                      <span className="text-yellow-400 mr-2">{'>'}</span>
+                      {isExecuting ? (
+                        <div className="flex items-center gap-2 text-gray-400">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Processing input...
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={currentInput}
+                          onChange={(e) => setCurrentInput(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              sendInput();
+                            }
+                          }}
+                          placeholder="Enter input and press Enter..."
+                          className="flex-1 bg-transparent text-green-400 font-mono text-sm outline-none placeholder-gray-500"
+                          autoFocus
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Help Text */}
+                <div className="text-sm text-gray-400">
+                  <p>💡 <strong>Interactive terminal:</strong></p>
+                  <ul className="list-disc list-inside mt-1 space-y-1">
+                    <li>Click &quot;Run code&quot; to execute the Python script</li>
+                    <li>When the program needs input, type your response and press Enter</li>
+                    <li>The terminal will show all output and wait for input as needed</li>
+                    <li>Use &quot;Clear&quot; to reset the terminal</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         </div>
