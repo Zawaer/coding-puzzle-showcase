@@ -5,7 +5,7 @@ import { ArrowLeft, Copy, Download, Code, Terminal, Loader2 } from "lucide-react
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useEffect, useState, use } from "react";
-import PythonExecutor from "../../../../components/PythonExecutor";
+import PythonExecutor from "../../../../components/HybridPythonExecutor";
 
 interface PuzzleData {
   name: string;
