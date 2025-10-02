@@ -9,6 +9,13 @@ interface PyodideTerminalProps {
   className?: string;
 }
 
+interface ThemeStyle {
+  plain?: {
+    backgroundColor?: string;
+    color?: string;
+  };
+}
+
 // Minimal typed interface for the subset of Pyodide we use here.
 interface PyodideRuntime {
   globals: {
@@ -359,8 +366,8 @@ exec(user_code, globals())
           spellCheck={false}
           className="border-none rounded-lg p-4 h-80 overflow-y-auto font-mono text-sm whitespace-pre-wrap focus:outline-none select-text"
           style={{ 
-            backgroundColor: (oneDark.plain && (oneDark as any).plain.backgroundColor) || '#011627',
-            color: (oneDark.plain && (oneDark as any).plain.color) || '#d6deeb',
+            backgroundColor: (oneDark as ThemeStyle).plain?.backgroundColor || '#011627',
+            color: (oneDark as ThemeStyle).plain?.color || '#d6deeb',
             fontFamily: 'monospace',
             lineHeight: '1.4'
           }}
