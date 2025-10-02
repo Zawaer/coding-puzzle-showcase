@@ -84,7 +84,7 @@ export default function PyodideTerminal({ code, className = "" }: PyodideTermina
         indexURL: "https://cdn.jsdelivr.net/pyodide/v0.28.3/full/",
       });
 
-      // Set up the Python environment with a simpler approach
+      // Set up exactly like your working HTML example
       pyodideInstance.globals.set("js_writeOutput", writeOutput);
       pyodideInstance.globals.set("js_input", customInput);
 
@@ -95,7 +95,7 @@ def print(*args, **kwargs):
     s = " ".join(map(str, args))
     js_writeOutput(s)
 
-# Override the built-in print
+# Override print globally
 builtins.print = print
       `);
 
@@ -115,30 +115,45 @@ builtins.print = print
     if (!pyodide || !code.trim()) return;
     
     setIsExecuting(true);
-    writeOutput("\n--- Executing code ---");
+    writeOutput("\n--- Executing code ---\n");
 
     try {
-      // Simple approach: wrap the entire code in an async context
-      const wrappedCode = `
-async def main():
-    # Override input to be async within this context
-    async def input(prompt=""):
-        return await js_input(prompt)
-    
-    # Execute the user code
-${code.split('\n').map(line => '    ' + line).join('\n')}
-
-# Run the main function
-await main()
-`;
+      // Parse and transform the code to handle input calls properly
+      const transformedCode = transformCodeForAsync(code);
       
-      await pyodide.runPythonAsync(wrappedCode);
+      await pyodide.runPythonAsync(`
+import builtins
+
+async def input(prompt=""):
+    return await js_input(prompt)
+
+def print(*args, **kwargs):
+    s = " ".join(map(str, args))
+    js_writeOutput(s)
+
+builtins.print = print
+
+# Execute in async context
+async def execute_user_code():
+    # Override input in async context
+    builtins.input = input
+    
+${transformedCode.split('\n').map(line => '    ' + line).join('\n')}
+
+await execute_user_code()
+      `);
+      
       writeOutput("--- Execution completed ---");
     } catch (error) {
       writeOutput(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsExecuting(false);
     }
+  };
+
+  const transformCodeForAsync = (code: string): string => {
+    // Transform input() calls to await input()
+    return code.replace(/(\w+\s*=\s*.*?)input\(/g, '$1await input(');
   };
 
   const clearTerminal = () => {
@@ -200,7 +215,7 @@ await main()
     <div className={`bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 ${className}`}>
       <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
         <Terminal className="w-5 h-5 text-green-400" />
-        Interactive Python Terminal (Pyodide)
+        Interactive Python Terminal
       </h3>
       
       <div className="space-y-4">
