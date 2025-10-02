@@ -8,14 +8,24 @@ interface PyodideTerminalProps {
   className?: string;
 }
 
+// Minimal typed interface for the subset of Pyodide we use here.
+interface PyodideRuntime {
+  globals: {
+    set: (name: string, value: unknown) => void;
+    get?: (name: string) => unknown;
+  };
+  runPythonAsync: (code: string) => Promise<unknown>;
+  runPython?: (code: string, options?: unknown) => unknown;
+}
+
 declare global {
   interface Window {
-    loadPyodide: (config?: { indexURL?: string }) => Promise<any>;
+    loadPyodide: (config?: { indexURL?: string }) => Promise<PyodideRuntime>;
   }
 }
 
 export default function PyodideTerminal({ code, className = "" }: PyodideTerminalProps) {
-  const [pyodide, setPyodide] = useState<any>(null);
+  const [pyodide, setPyodide] = useState<PyodideRuntime | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -143,7 +153,7 @@ ${transformedCode.split('\n').map(line => '    ' + line).join('\n')}
 await execute_user_code()
       `);
       
-      writeOutput("--- Execution completed ---");
+      writeOutput("\n--- Execution completed ---");
     } catch (error) {
       writeOutput(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
@@ -162,7 +172,7 @@ await execute_user_code()
       inputStartRef.current = 0;
     }
     if (isReady) {
-      writeOutput("Terminal cleared. Click 'Run Code' to execute the script.");
+      writeOutput("");
     }
   };
 
