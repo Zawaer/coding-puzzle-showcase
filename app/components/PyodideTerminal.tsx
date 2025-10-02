@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Play, Square, RotateCcw, Loader2, Terminal } from 'lucide-react';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-type PrismThemePlain = { plain?: { backgroundColor?: string; color?: string } };
-
 interface PyodideTerminalProps {
   code: string;
   className?: string;
@@ -34,8 +32,9 @@ export default function PyodideTerminal({ code, className = "" }: PyodideTermina
   const [isExecuting, setIsExecuting] = useState(false);
   const [isWaitingForInput, setIsWaitingForInput] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
-  const workerRef = useRef<Worker | null>(null);
   const waitingForInputResolveRef = useRef<((value: string) => void) | null>(null);
+  // Typed theme extraction to avoid explicit `any` casts for ESLint
+  const themePlain = (oneDark as { plain?: { backgroundColor?: string; color?: string } }).plain ?? { backgroundColor: '#011627', color: '#d6deeb' };
   const inputStartRef = useRef(0);
 
   const writeOutput = (text: string) => {
@@ -128,44 +127,11 @@ builtins.print = print
     }
   };
 
-  // Auto-initialize on mount (inline to satisfy hooks lint)
+  // Auto-initialize on mount
   useEffect(() => {
-    (async () => {
-      if (isReady || isLoading) return;
-      setIsLoading(true);
-      writeOutput("⏳ Loading Python environment...\n");
-
-      try {
-        const worker = new Worker('/pyodide-worker.js');
-        workerRef.current = worker as Worker;
-
-        worker.addEventListener('message', (ev) => {
-          const d = ev.data;
-          if (!d) return;
-          if (d.type === 'status') {
-            writeOutput('pyodide status: ' + d.status + '\n');
-          } else if (d.type === 'ready') {
-            setIsReady(true);
-            setIsLoading(false);
-          } else if (d.type === 'stdout') {
-            writeOutput(String(d.text));
-          } else if (d.type === 'input_request') {
-            (async () => {
-              const value = await customInput(d.prompt || '');
-              worker.postMessage({ type: 'input_response', value });
-            })();
-          } else if (d.type === 'error' || d.type === 'run_error') {
-            writeOutput('❌ ' + (d.error || 'Unknown error') + '\n');
-          }
-        });
-
-        worker.postMessage({ type: 'init' });
-      } catch (e) {
-        writeOutput(`❌ Failed to start worker: ${e instanceof Error ? e.message : 'Unknown error'}`);
-        setIsLoading(false);
-      }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadPyodideEnvironment().catch((e) => {
+      console.error('Auto-init Pyodide failed', e);
+    });
   }, []);
 
   const executeCode = async () => {
