@@ -125,7 +125,7 @@ builtins.print = print
     if (!pyodide || !code.trim()) return;
     
     setIsExecuting(true);
-    writeOutput("\n--- Executing code ---\n");
+    clearTerminal();
 
     try {
       // Parse and transform the code to handle input calls properly
@@ -153,9 +153,8 @@ ${transformedCode.split('\n').map(line => '    ' + line).join('\n')}
 await execute_user_code()
       `);
       
-      writeOutput("\n--- Execution completed ---");
     } catch (error) {
-      writeOutput(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      writeOutput(`${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsExecuting(false);
     }
@@ -170,9 +169,6 @@ await execute_user_code()
     if (terminalRef.current) {
       terminalRef.current.innerText = "";
       inputStartRef.current = 0;
-    }
-    if (isReady) {
-      writeOutput("");
     }
   };
 
