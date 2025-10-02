@@ -33,8 +33,6 @@ export default function PyodideTerminal({ code, className = "" }: PyodideTermina
   const [isWaitingForInput, setIsWaitingForInput] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const waitingForInputResolveRef = useRef<((value: string) => void) | null>(null);
-  // Typed theme extraction to avoid explicit `any` casts for ESLint
-  const themePlain = (oneDark as { plain?: { backgroundColor?: string; color?: string } }).plain ?? { backgroundColor: '#011627', color: '#d6deeb' };
   const inputStartRef = useRef(0);
 
   const writeOutput = (text: string) => {
