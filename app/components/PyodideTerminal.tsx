@@ -29,6 +29,7 @@ export default function PyodideTerminal({ code, className = "" }: PyodideTermina
   const [isLoading, setIsLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const waitingForInputResolveRef = useRef<((value: string) => void) | null>(null);
   const inputStartRef = useRef(0);
@@ -45,6 +46,7 @@ export default function PyodideTerminal({ code, className = "" }: PyodideTermina
     if (prompt) writeOutput(prompt);
     return new Promise<string>((resolve) => {
       waitingForInputResolveRef.current = resolve;
+  setIsWaitingForInput(true);
       if (terminalRef.current) {
         terminalRef.current.innerText += "> ";
         terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
@@ -134,14 +136,52 @@ builtins.print = print
     clearTerminal();
 
     try {
-      // Parse and transform the code to handle input calls properly
-      const transformedCode = transformCodeForAsync(code);
-      
+      // Pass the original user code without any async transforms
+      pyodide.globals.set('pyodide_user_code', code);
+
       await pyodide.runPythonAsync(`
 import builtins
+import textwrap
+from js import Object
+from pyodide.ffi import create_proxy
 
-async def input(prompt=""):
-    return await js_input(prompt)
+# Create a synchronous-looking input function that actually handles async internally
+class SyncInput:
+    def __init__(self, js_input_func):
+        self.js_input_func = js_input_func
+        self.result = None
+        self.waiting = False
+    
+    def __call__(self, prompt=""):
+        if self.waiting:
+            raise RuntimeError("Nested input() calls not supported")
+        
+        self.waiting = True
+        self.result = None
+        
+        # Create a promise and immediately resolve it with the JS async function
+        import asyncio
+        loop = asyncio.get_event_loop()
+        
+        # Create a future that will be resolved by the callback
+        future = loop.create_future()
+        
+        def resolve_callback(value):
+            if not future.done():
+                future.set_result(value)
+        
+        # Call the JS async function and set up the callback
+        js_promise = self.js_input_func(prompt)
+        js_promise.then(create_proxy(resolve_callback))
+        
+        # Wait for the result synchronously within the event loop
+        self.result = loop.run_until_complete(future)
+        self.waiting = False
+        return self.result
+
+# Override input with our synchronous wrapper
+sync_input = SyncInput(js_input)
+builtins.input = sync_input
 
 def print(*args, **kwargs):
     s = " ".join(map(str, args))
@@ -149,29 +189,18 @@ def print(*args, **kwargs):
 
 builtins.print = print
 
-# Execute in async context
-async def execute_user_code():
-    # Override input in async context
-    builtins.input = input
-    
-${transformedCode.split('\n').map(line => '    ' + line).join('\n')}
-
-await execute_user_code()
+# Execute the user code directly without any async wrapping
+user_code = textwrap.dedent(pyodide_user_code)
+exec(user_code, globals())
       `);
       
     } catch (error) {
       writeOutput(`${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsExecuting(false);
+      writeOutput("\n--- Execution completed ---");
     }
-  };
-
-  const transformCodeForAsync = (code: string): string => {
-    // Transform input() calls to await input()
-    return code.replace(/(\w+\s*=\s*.*?)input\(/g, '$1await input(');
-  };
-
-  const clearTerminal = () => {
+  };  const clearTerminal = () => {
     if (terminalRef.current) {
       terminalRef.current.innerText = "";
       inputStartRef.current = 0;
@@ -189,36 +218,77 @@ await execute_user_code()
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!terminalRef.current) return;
 
-      // Always keep caret at or after inputStart
-      const selection = window.getSelection();
-      if (selection && selection.anchorOffset < inputStartRef.current) {
-        placeCaretAtEnd();
-      }
+      // Only force caret at end while waiting for input
+        if (waitingForInputResolveRef.current) {
+        const selection = window.getSelection();
+        if (selection && selection.anchorOffset < inputStartRef.current) {
+          placeCaretAtEnd();
+        }
 
-      // Handle Enter key
-      if (e.key === "Enter" && waitingForInputResolveRef.current) {
-        e.preventDefault();
-        const text = terminalRef.current.innerText.substring(inputStartRef.current).trim();
-        waitingForInputResolveRef.current(text);
-        waitingForInputResolveRef.current = null;
-        terminalRef.current.innerText += "\n";
-        inputStartRef.current = terminalRef.current.innerText.length;
-        placeCaretAtEnd();
+          // Prevent deleting or altering protected text before the input start
+          if (e.key === 'Backspace' || e.key === 'Delete') {
+            if (selection && selection.anchorOffset <= inputStartRef.current) {
+              e.preventDefault();
+              return;
+            }
+          }
+
+          if (e.key === "Enter") {
+          e.preventDefault();
+          const text = terminalRef.current!.innerText.substring(inputStartRef.current).trim();
+          waitingForInputResolveRef.current!(text);
+          waitingForInputResolveRef.current = null;
+            setIsWaitingForInput(false);
+          terminalRef.current!.innerText += "\n";
+          inputStartRef.current = terminalRef.current!.innerText.length;
+          placeCaretAtEnd();
+        }
       }
     };
 
     const handleClick = () => {
-      placeCaretAtEnd();
+      // If waiting for input, keep caret at end; otherwise allow regular selection/caret
+      if (waitingForInputResolveRef.current) placeCaretAtEnd();
+    };
+
+    const handlePaste = (e: ClipboardEvent) => {
+      // Only allow paste into the editable input region
+      if (!waitingForInputResolveRef.current) {
+        e.preventDefault();
+        return;
+      }
+      const selection = window.getSelection();
+      if (selection && selection.anchorOffset < inputStartRef.current) {
+        // Force caret to end so paste only affects input area
+        e.preventDefault();
+        placeCaretAtEnd();
+      }
+    };
+
+    const handleCut = (e: ClipboardEvent) => {
+      // Disallow cutting protected output
+      if (!waitingForInputResolveRef.current) {
+        e.preventDefault();
+        return;
+      }
+      const selection = window.getSelection();
+      if (selection && selection.anchorOffset < inputStartRef.current) {
+        e.preventDefault();
+      }
     };
 
     const terminal = terminalRef.current;
     if (terminal) {
       terminal.addEventListener('keydown', handleKeyDown);
       terminal.addEventListener('click', handleClick);
+      terminal.addEventListener('paste', handlePaste as EventListener);
+      terminal.addEventListener('cut', handleCut as EventListener);
 
       return () => {
         terminal.removeEventListener('keydown', handleKeyDown);
         terminal.removeEventListener('click', handleClick);
+        terminal.removeEventListener('paste', handlePaste as EventListener);
+        terminal.removeEventListener('cut', handleCut as EventListener);
       };
     }
   }, []);
@@ -279,9 +349,10 @@ await execute_user_code()
         {/* Terminal */}
         <div 
           ref={terminalRef}
-          contentEditable={isReady}
+          contentEditable={isReady && isWaitingForInput}
+          tabIndex={0}
           spellCheck={false}
-          className="bg-black border border-white/20 rounded-lg p-4 h-64 overflow-y-auto text-green-400 font-mono text-sm whitespace-pre-wrap focus:outline-none"
+          className="bg-black border border-white/20 rounded-lg p-4 h-64 overflow-y-auto text-green-400 font-mono text-sm whitespace-pre-wrap focus:outline-none select-text"
           style={{ 
             color: 'white', 
             fontFamily: 'monospace',
