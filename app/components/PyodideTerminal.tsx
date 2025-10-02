@@ -109,9 +109,8 @@ def print(*args, **kwargs):
 builtins.print = print
       `);
 
-      setPyodide(pyodideInstance);
-      setIsReady(true);
-      writeOutput("✅ Python environment ready! Click 'Run Code' to execute.");
+  setPyodide(pyodideInstance);
+  setIsReady(true);
       
     } catch (error) {
       writeOutput(`❌ Failed to load Python: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -120,6 +119,13 @@ builtins.print = print
       setIsLoading(false);
     }
   };
+
+  // Auto-initialize on mount
+  useEffect(() => {
+    loadPyodideEnvironment().catch((e) => {
+      console.error('Auto-init Pyodide failed', e);
+    });
+  }, []);
 
   const executeCode = async () => {
     if (!pyodide || !code.trim()) return;
@@ -221,71 +227,53 @@ await execute_user_code()
     <div className={`bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 ${className}`}>
       <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
         <Terminal className="w-5 h-5 text-green-400" />
-        Interactive Python Terminal
+        Interactive Python terminal
       </h3>
       
       <div className="space-y-4">
         {/* Control Buttons */}
         <div className="flex gap-3">
-          {!isReady && (
+          <button 
+            onClick={executeCode}
+            disabled={!isReady || isExecuting || isLoading}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors disabled:cursor-not-allowed"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading...
+              </>
+            ) : isExecuting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Running...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4" />
+                Run Code
+              </>
+            )}
+          </button>
+
+          {isExecuting && (
             <button 
-              onClick={loadPyodideEnvironment}
-              disabled={isLoading}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors disabled:cursor-not-allowed"
+              onClick={stopExecution}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition-colors"
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading Python...
-                </>
-              ) : (
-                <>
-                  <Terminal className="w-4 h-4" />
-                  Initialize Python
-                </>
-              )}
+              <Square className="w-4 h-4" />
+              Stop
             </button>
           )}
-          
-          {isReady && (
-            <>
-              <button 
-                onClick={executeCode}
-                disabled={isExecuting}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors disabled:cursor-not-allowed"
-              >
-                {isExecuting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Running...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4" />
-                    Run Code
-                  </>
-                )}
-              </button>
-              
-              {isExecuting && (
-                <button 
-                  onClick={stopExecution}
-                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition-colors"
-                >
-                  <Square className="w-4 h-4" />
-                  Stop
-                </button>
-              )}
-              
-              <button 
-                onClick={clearTerminal}
-                className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg transition-colors"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Clear
-              </button>
-            </>
-          )}
+
+          <button 
+            onClick={clearTerminal}
+            disabled={isLoading}
+            className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Clear
+          </button>
         </div>
 
         {/* Terminal */}
@@ -302,33 +290,6 @@ await execute_user_code()
           suppressContentEditableWarning={true}
         >
           {!isReady && !isLoading && "Click 'Initialize Python' to start the Python environment..."}
-        </div>
-
-        {/* Status */}
-        <div className="flex items-center justify-between text-sm">
-          <div className="text-gray-400">
-            Status: {
-              isLoading ? "Loading Python environment..." :
-              !isReady ? "Not initialized" :
-              isExecuting ? "Executing..." :
-              "Ready"
-            }
-          </div>
-          <div className="text-gray-500">
-            Pyodide (Python in WebAssembly) - Works everywhere!
-          </div>
-        </div>
-
-        {/* Help Text */}
-        <div className="text-sm text-gray-400">
-          <p>💡 <strong>Interactive terminal:</strong></p>
-          <ul className="list-disc list-inside mt-1 space-y-1">
-            <li>Click &quot;Initialize Python&quot; to load the Python environment</li>
-            <li>Click &quot;Run Code&quot; to execute the Python script</li>
-            <li>When the program needs input, type directly in the terminal and press Enter</li>
-            <li>The terminal shows all output and handles input seamlessly</li>
-            <li>Works completely in your browser - no server required!</li>
-          </ul>
         </div>
       </div>
     </div>
