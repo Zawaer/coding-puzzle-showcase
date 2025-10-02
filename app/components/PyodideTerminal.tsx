@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Play, Square, RotateCcw, Loader2, Terminal } from 'lucide-react';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface PyodideTerminalProps {
   code: string;
@@ -36,9 +37,9 @@ export default function PyodideTerminal({ code, className = "" }: PyodideTermina
 
   const writeOutput = (text: string) => {
     if (terminalRef.current) {
-      terminalRef.current.innerText += text + "\n";
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-      inputStartRef.current = terminalRef.current.innerText.length;
+  terminalRef.current.innerText += text;
+  terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+  inputStartRef.current = terminalRef.current.innerText.length;
     }
   };
 
@@ -75,7 +76,7 @@ export default function PyodideTerminal({ code, className = "" }: PyodideTermina
     if (isReady || isLoading) return;
     
     setIsLoading(true);
-    writeOutput("⏳ Loading Python environment...");
+  writeOutput("⏳ Loading Python environment...\n");
 
     try {
       // Load Pyodide from CDN
@@ -100,16 +101,18 @@ export default function PyodideTerminal({ code, className = "" }: PyodideTermina
       pyodideInstance.globals.set("js_writeOutput", writeOutput);
       pyodideInstance.globals.set("js_input", customInput);
 
-      await pyodideInstance.runPythonAsync(`
+  await pyodideInstance.runPythonAsync(`
 import builtins
 
 def print(*args, **kwargs):
-    s = " ".join(map(str, args))
-    js_writeOutput(s)
+  sep = kwargs.get('sep', ' ')
+  end = kwargs.get('end', '\\n')
+  s = sep.join(map(str, args))
+  js_writeOutput(s + end)
 
 # Override print globally
 builtins.print = print
-      `);
+  `);
 
   setPyodide(pyodideInstance);
   setIsReady(true);
@@ -139,7 +142,7 @@ builtins.print = print
       // Pass the original user code without any async transforms
       pyodide.globals.set('pyodide_user_code', code);
 
-      await pyodide.runPythonAsync(`
+  await pyodide.runPythonAsync(`
 import builtins
 import textwrap
 from js import Object
@@ -184,8 +187,10 @@ sync_input = SyncInput(js_input)
 builtins.input = sync_input
 
 def print(*args, **kwargs):
-    s = " ".join(map(str, args))
-    js_writeOutput(s)
+  sep = kwargs.get('sep', ' ')
+  end = kwargs.get('end', '\\n')
+  s = sep.join(map(str, args))
+  js_writeOutput(s + end)
 
 builtins.print = print
 
@@ -321,7 +326,7 @@ exec(user_code, globals())
             ) : (
               <>
                 <Play className="w-4 h-4" />
-                Run Code
+                Run
               </>
             )}
           </button>
@@ -352,9 +357,10 @@ exec(user_code, globals())
           contentEditable={isReady && isWaitingForInput}
           tabIndex={0}
           spellCheck={false}
-          className="bg-black border border-white/20 rounded-lg p-4 h-64 overflow-y-auto text-green-400 font-mono text-sm whitespace-pre-wrap focus:outline-none select-text"
+          className="border-none rounded-lg p-4 h-80 overflow-y-auto font-mono text-sm whitespace-pre-wrap focus:outline-none select-text"
           style={{ 
-            color: 'white', 
+            backgroundColor: (oneDark.plain && (oneDark as any).plain.backgroundColor) || '#011627',
+            color: (oneDark.plain && (oneDark as any).plain.color) || '#d6deeb',
             fontFamily: 'monospace',
             lineHeight: '1.4'
           }}
