@@ -34,6 +34,8 @@ export default function PyodideTerminal({ code, className = "" }: PyodideTermina
   const terminalRef = useRef<HTMLDivElement>(null);
   const waitingForInputResolveRef = useRef<((value: string) => void) | null>(null);
   const inputStartRef = useRef(0);
+  // Extract plain color info from theme safely
+  const plainColors = (oneDark as { plain?: { backgroundColor?: string; color?: string } }).plain || {};
 
   const writeOutput = (text: string) => {
     if (terminalRef.current) {
@@ -126,11 +128,13 @@ builtins.print = print
   };
 
   // Auto-initialize on mount
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     loadPyodideEnvironment().catch((e) => {
       console.error('Auto-init Pyodide failed', e);
     });
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const executeCode = async () => {
     if (!pyodide || !code.trim()) return;
