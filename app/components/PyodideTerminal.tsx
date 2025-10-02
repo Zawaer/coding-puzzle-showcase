@@ -228,39 +228,42 @@ exec(user_code, globals())
   // Handle keyboard events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!terminalRef.current) return;
+      if (!terminalRef.current || !waitingForInputResolveRef.current) return;
 
-      // Only force caret at end while waiting for input
-        if (waitingForInputResolveRef.current) {
-        const selection = window.getSelection();
-        if (selection && selection.anchorOffset < inputStartRef.current) {
-          placeCaretAtEnd();
-        }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const text = terminalRef.current.innerText.substring(inputStartRef.current).trim();
+        waitingForInputResolveRef.current(text);
+        waitingForInputResolveRef.current = null;
+        setIsWaitingForInput(false);
+        terminalRef.current.innerText += "\n";
+        inputStartRef.current = terminalRef.current.innerText.length;
+      }
+    };
 
-          // Prevent deleting or altering protected text before the input start
-          if (e.key === 'Backspace' || e.key === 'Delete') {
-            if (selection && selection.anchorOffset <= inputStartRef.current) {
-              e.preventDefault();
-              return;
-            }
-          }
-
-          if (e.key === "Enter") {
-          e.preventDefault();
-          const text = terminalRef.current!.innerText.substring(inputStartRef.current).trim();
-          waitingForInputResolveRef.current!(text);
-          waitingForInputResolveRef.current = null;
-            setIsWaitingForInput(false);
-          terminalRef.current!.innerText += "\n";
-          inputStartRef.current = terminalRef.current!.innerText.length;
-          placeCaretAtEnd();
-        }
+    const handleInput = (e: Event) => {
+      if (!terminalRef.current || !waitingForInputResolveRef.current) return;
+      
+      const currentText = terminalRef.current.innerText;
+      const beforeInput = currentText.substring(0, inputStartRef.current);
+      const afterInput = currentText.substring(inputStartRef.current);
+      
+      // If user somehow modified the protected part, restore it
+      if (currentText.length < inputStartRef.current) {
+        terminalRef.current.innerText = beforeInput + afterInput;
+        placeCaretAtEnd();
       }
     };
 
     const handleClick = () => {
-      // If waiting for input, keep caret at end; otherwise allow regular selection/caret
-      if (waitingForInputResolveRef.current) placeCaretAtEnd();
+      if (!waitingForInputResolveRef.current) return;
+      // Allow clicking anywhere, but if they click in protected area, move to input area
+      setTimeout(() => {
+        const selection = window.getSelection();
+        if (selection && selection.anchorOffset < inputStartRef.current) {
+          placeCaretAtEnd();
+        }
+      }, 0);
     };
 
     const handlePaste = (e: ClipboardEvent) => {
@@ -292,12 +295,14 @@ exec(user_code, globals())
     const terminal = terminalRef.current;
     if (terminal) {
       terminal.addEventListener('keydown', handleKeyDown);
+      terminal.addEventListener('input', handleInput);
       terminal.addEventListener('click', handleClick);
       terminal.addEventListener('paste', handlePaste as EventListener);
       terminal.addEventListener('cut', handleCut as EventListener);
 
       return () => {
         terminal.removeEventListener('keydown', handleKeyDown);
+        terminal.removeEventListener('input', handleInput);
         terminal.removeEventListener('click', handleClick);
         terminal.removeEventListener('paste', handlePaste as EventListener);
         terminal.removeEventListener('cut', handleCut as EventListener);
